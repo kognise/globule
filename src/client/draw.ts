@@ -1,4 +1,5 @@
 import { Vec2 } from '../shared/vec.js';
+import { realMod } from '../shared/lib.js'
 import { State } from './script.js';
 
 const GOLDEN_RATIO = 1.618034;
@@ -165,7 +166,7 @@ export const frame = ({ id, pan, srv: { sunlight, trees, sunGlobs, clients } }: 
 			const y = (Math.floor(pan.y / tileSize) + qy);
 			const ix = x * tileSize - 1;
 			const iy = y * tileSize - 1;
-			const rotation = [ 0, 90, 180, 270 ][rotationMatrix[Math.abs(x) % 32][Math.abs(y) % 32]];
+			const rotation = [ 0, 90, 180, 270 ][rotationMatrix[realMod(x, 32)][realMod(y, 32)]];
 
 			ctx.save();
 			ctx.translate(ix + realTileSize/2, iy + realTileSize/2);

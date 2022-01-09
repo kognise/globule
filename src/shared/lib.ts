@@ -35,3 +35,5 @@ export const transformWeirdUndefineds = (object: unknown) => {
 			transformWeirdUndefineds(value)
 	}
 }
+
+export const realMod = (x: number, n: number) => ((x % n) + n) % n
