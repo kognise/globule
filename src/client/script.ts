@@ -11,8 +11,10 @@ const ws = new WebSocket(wsUrl);
 export interface PartialState {
 	pan: { x: number, y: number },
 	selectedTree: keyof typeof config.prices | null,
+	mouseDown: boolean;
 	srv?: ServerState
 }
+
 export type State = PartialState & { srv: ServerState }
 const isntPartial = (state: PartialState): state is State => state.srv !== undefined
 
@@ -22,8 +24,11 @@ Promise.all([
 ]).then(() => {
 	let state: PartialState = {
 		selectedTree: null,
+		mouseDown: false,
 		pan: { x: -window.innerWidth / 2, y: -window.innerHeight / 2 },
 	};
+	window.addEventListener('mousedown', () => state.mouseDown = true);
+	window.addEventListener('mouseup', () => state.mouseDown = false);
 	draw.init(document.getElementById('canvas') as HTMLCanvasElement);
 
 	ws.onmessage = (e) => {
@@ -53,6 +58,7 @@ Promise.all([
 			panStart = { x: ev.pageX, y: ev.pageY }
 		} else if (ev.button === 2) {
 			if (!isntPartial(state)) return
+			if (state.selectedTree == null) return;
 			ws.send(JSON.stringify({
 				kind: 'placeTree',
 				body: {

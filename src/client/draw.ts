@@ -83,7 +83,8 @@ const mulberry2 = (t: number) => {
 }
 
 let prevElapsed: number;
-export const frame = ({ pan, srv: { sunlight, trees, sunGlobs } }: State, elapsed: number) => {
+export const frame = (state: State, elapsed: number) => {
+	const { pan, srv: { sunlight, trees, sunGlobs } } = state;
 	const delta = elapsed - prevElapsed;
 	const renders = [];
 
@@ -148,8 +149,12 @@ export const frame = ({ pan, srv: { sunlight, trees, sunGlobs } }: State, elapse
 	for (const k of Object.keys(prices) as (keyof typeof prices)[]) {
 		down += 40;
 		const x = 20, y = down, w = 112, h = 26;
+
 		const overButton = xyInBox(mouse.x, mouse.y, x, y, w, h);
+		if (state.mouseDown && overButton)
+			state.selectedTree = k;
 		ctx.setLineDash(overButton ? [5, 5] : []);
+
 		ctx.font = '16px sans-serif';
 		ctx.strokeRect(x, y, w, h);
 		ctx.fillText(

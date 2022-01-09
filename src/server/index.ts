@@ -96,6 +96,9 @@ wss.on('connection', (ws) => {
 			case 'placeTree': {
 				const { treeKind, pos } = msg.body;
 
+				if (!(treeKind in prices))
+					break;
+
 				const nearestTreeDist = state
 					.trees
 					.map(x => dist(x.pos, pos))
@@ -103,7 +106,7 @@ wss.on('connection', (ws) => {
 					.splice(0, 1)[0] ?? Infinity;
 
 				const price = prices[treeKind as keyof typeof prices];
-				if (nearestTreeDist > 40 && state.sunlight > price) {
+				if (nearestTreeDist > 40 && state.sunlight >= price) {
 					state.trees.push({ daysOld: 0, pos });
 					state.sunlight -= price;
 				}
