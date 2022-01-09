@@ -1,7 +1,8 @@
 import * as draw from './draw.js';
 import { State as ServerState } from '../server/index.js';
-import { Vec2 } from '../shared/vec.js';
+import { add, Vec2 } from '../shared/vec.js';
 import { applyDiff, transformWeirdUndefineds } from '../shared/lib.js';
+import config from '../shared/config.js';
 
 const wsUrl = new URL(window.location.href)
 wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -9,6 +10,7 @@ const ws = new WebSocket(wsUrl);
 
 export interface PartialState {
 	pan: { x: number, y: number },
+	selectedTree: keyof typeof config.prices | null,
 	srv?: ServerState
 }
 export type State = PartialState & { srv: ServerState }
@@ -19,6 +21,7 @@ Promise.all([
 	new Promise((res) => ws.onopen = res)
 ]).then(() => {
 	let state: PartialState = {
+		selectedTree: null,
 		pan: { x: -window.innerWidth / 2, y: -window.innerHeight / 2 },
 	};
 	draw.init(document.getElementById('canvas') as HTMLCanvasElement);
@@ -52,7 +55,10 @@ Promise.all([
 			if (!isntPartial(state)) return
 			ws.send(JSON.stringify({
 				kind: 'placeTree',
-				body: { x: ev.pageX + state.pan.x, y: ev.pageY + state.pan.y }
+				body: {
+					pos: add(state.pan, { x: ev.pageX, y: ev.pageY }),
+					treeKind: state.selectedTree
+				}
 			}));
 		}
 	};

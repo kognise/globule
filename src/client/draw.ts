@@ -1,4 +1,6 @@
 import { State } from './script.js';
+import config from '../shared/config.js';
+const { prices } = config;
 
 const GOLDEN_RATIO = 1.618034;
 
@@ -133,15 +135,28 @@ export const frame = ({ pan, srv: { sunlight, trees, sunGlobs } }: State, elapse
 	ctx.restore();
 
 	ctx.textBaseline = "top";
-	ctx.fillStyle = 'black';
+	ctx.fillStyle = ctx.strokeStyle = 'rgb(240, 210, 200)';
+	ctx.lineWidth = 1;
 	ctx.font = '36px sans-serif';
 	ctx.fillText('☀️ ' + sunlight, 0, 10);
 
-	const overButton = xyInBox(mouse.x, mouse.y, 20, 58, 110, 26);
-	ctx.setLineDash(overButton ? [5, 5] : []);
-	ctx.font = '16px sans-serif';
-	ctx.strokeRect(20, 58, 112, 26);
-	ctx.fillText('🌳️ buy: ☀️1️0️0️', 22, 65);
+	const mojis: Record<keyof typeof prices, string> = {
+		'sprout': '🌳️',
+		'oak': '🌰'
+	};
+	let down = 18;
+	for (const k of Object.keys(prices) as (keyof typeof prices)[]) {
+		down += 40;
+		const x = 20, y = down, w = 112, h = 26;
+		const overButton = xyInBox(mouse.x, mouse.y, x, y, w, h);
+		ctx.setLineDash(overButton ? [5, 5] : []);
+		ctx.font = '16px sans-serif';
+		ctx.strokeRect(x, y, w, h);
+		ctx.fillText(
+			mojis[k] +' buy: ' + ('☀️' + prices[k]).padStart(6),
+			x+2, y+7
+		);
+	}
 
 	prevElapsed = elapsed;
 }
