@@ -82,6 +82,38 @@ const mulberry2 = (t: number) => {
 	return ((t ^ t >>> 14) >>> 0) / 4294967296;
 }
 
+let buttonFrame = 0;
+const buttonRegistry: Record<string, number> = {};
+const renderButton = (id: string, x: number, y: number, text: string, onClick: () => void, className?: string) => {
+	if (buttonRegistry[id] !== undefined) {
+		const button = document.getElementById(id)!;
+		button.className = className ?? '';
+		button.style.left = `${x}px`;
+		button.style.top = `${y}px`;
+		if (button.innerText !== text) button.innerText = text;
+		button.onclick = onClick;
+	} else {
+		const button = document.createElement('button')!;
+		if (className) button.className = className;
+		button.id = id;
+		button.style.left = `${x}px`;
+		button.style.top = `${y}px`;
+		button.innerText = text;
+		button.onclick = onClick;
+		document.body.appendChild(button);
+	}
+	buttonRegistry[id] = buttonFrame;
+}
+const endButtonFrame = () => {
+	for (const [id, lastRender] of Object.entries(buttonRegistry)) {
+		if (lastRender !== buttonFrame) {
+			document.getElementById(id)!.remove();
+			delete buttonRegistry[id];
+		}
+	}
+	buttonFrame++;
+}
+
 let prevElapsed: number;
 export const frame = (state: State, elapsed: number) => {
 	const { pan, srv: { sunlight, trees, sunGlobs } } = state;
@@ -145,23 +177,18 @@ export const frame = (state: State, elapsed: number) => {
 		'sprout': '🌳️',
 		'oak': '🌰'
 	};
+
 	let down = 18;
 	for (const k of Object.keys(prices) as (keyof typeof prices)[]) {
 		down += 40;
-		const x = 20, y = down, w = 112, h = 26;
-
-		const overButton = xyInBox(mouse.x, mouse.y, x, y, w, h);
-		if (state.mouseDown && overButton)
-			state.selectedTree = k;
-		ctx.setLineDash(overButton ? [5, 5] : []);
-
-		ctx.font = '16px sans-serif';
-		ctx.strokeRect(x, y, w, h);
-		ctx.fillText(
-			mojis[k] +' buy: ' + ('☀️' + prices[k]).padStart(6),
-			x+2, y+7
+		renderButton(
+			k, 20, down,
+			mojis[k] + ' buy: ' + '☀️' + prices[k],
+			() => state.selectedTree = k,
+			'buy'
 		);
 	}
 
+	endButtonFrame();
 	prevElapsed = elapsed;
 }
