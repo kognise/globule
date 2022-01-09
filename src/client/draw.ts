@@ -1,6 +1,7 @@
 import { Vec2 } from '../shared/vec.js';
 import { realMod } from '../shared/lib.js'
 import { State } from './script.js';
+import { SunGlob } from '../server/index.js';
 import config from '../shared/config.js';
 const { prices } = config;
 
@@ -114,7 +115,7 @@ export const drawTree = (tx: number, ty: number, scale: number, death: number, a
 
 let prevElapsed: number;
 export const frame = (state: State, elapsed: number) => {
-	const { pan, id, srv: { sunlight, trees, sunGlobs, clients } } = state;
+	const { pan, id, srv: { sunlight, trees, passives, clients } } = state;
 	const delta = elapsed - prevElapsed;
 	const renders = [];
 
@@ -129,16 +130,22 @@ export const frame = (state: State, elapsed: number) => {
 		)});
 	}
 
-	for (const { sunlight, pos: { x, y } } of Object.values(sunGlobs)) {
-		const scale = 1 + sunlight * 2.5;
-		const off = Math.sin(x + y + elapsed * 0.005) * 5;
-		renders.push({
-			zIndex: y, render() {
-				ctx.fillStyle = 'rgba(255,255,0,0.3)';
-				fillCircle(x, y + off, scale*0.5);
-				fillCircle(x, y + off, scale);
-			}
-		});
+	for (const psv of Object.values(passives)) {
+		const { x, y } = psv.pos;
+
+		if (psv.kind == 'sunglob') {
+			const { sunlight } = psv as SunGlob;
+
+			const scale = 1 + sunlight * 2.5;
+			const off = Math.sin(x + y + elapsed * 0.005) * 5;
+			renders.push({
+				zIndex: y, render() {
+					ctx.fillStyle = 'rgba(255,255,0,0.3)';
+					fillCircle(x, y + off, scale*0.5);
+					fillCircle(x, y + off, scale);
+				}
+			});
+		}
 	}
 
 	for (const { cursor, id: clientId } of Object.values(clients)) {
