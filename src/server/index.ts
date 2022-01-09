@@ -6,6 +6,8 @@ import http from 'http';
 import cloneDeep from 'clone-deep';
 import path from 'path';
 import { ServerInboundMsg, ServerOutboundMsg } from '../shared/msg';
+import config from '../shared/config.js';
+const { prices } = config;
 import { stringify } from '../shared/lib.js';
 import { fileURLToPath } from 'url';
 
@@ -38,10 +40,10 @@ export interface State {
 
 const state: State = {
 	trees: [],
-	sunGlobs: Object.fromEntries([...Array(12)].map((_, i) => {
+	sunGlobs: Object.fromEntries([...Array(8)].map((_, i) => {
 		return [++id, {
 			pos: mulf(50 + Math.random() * 50, rotToVec2(i / 12 * Math.PI * 2)),
-			sunlight: 9 + Math.floor(Math.random() * 5)
+			sunlight: 2 + Math.floor(Math.random() * 4)
 		}]
 	})),
 	sunlight: 0,
@@ -105,19 +107,25 @@ wss.on('connection', (ws) => {
 
 	ws.on('message', (data) => {
 		const startState = cloneDeep(state)
-		const msg = JSON.parse(data.toString()) as ServerInboundMsg;
+		const msg: any = JSON.parse(data.toString()) as ServerInboundMsg;
 		
 		switch (msg.kind) {
 			case 'placeTree': {
+				const { treeKind, pos } = msg.body;
+
+				if (!(treeKind in prices))
+					break;
+
 				const nearestTreeDist = state
 					.trees
-					.map(x => dist(x.pos, msg.body))
+					.map(x => dist(x.pos, pos))
 					.sort((a, b) => a - b)
 					.splice(0, 1)[0] ?? Infinity;
 
-				if (nearestTreeDist > 40 && state.sunlight > 100) {
-					state.trees.push({ daysOld: 0, pos: msg.body });
-					state.sunlight -= 100;
+				const price = prices[treeKind as keyof typeof prices];
+				if (nearestTreeDist > 40 && state.sunlight >= price) {
+					state.trees.push({ daysOld: 0, pos });
+					state.sunlight -= price;
 				}
 				break
 			}
