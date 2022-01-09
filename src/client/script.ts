@@ -10,10 +10,12 @@ const ws = new WebSocket(wsUrl);
 
 export interface PartialState {
 	pan: Vec2,
-	srv?: ServerState
+	srv?: ServerState,
+	id?: number
 }
-export type State = PartialState & { srv: ServerState }
-const isntPartial = (state: PartialState): state is State => state.srv !== undefined
+export type State = PartialState & { srv: ServerState, id: number }
+const isntPartial = (state: PartialState): state is State =>
+	state.srv !== undefined && state.id !== undefined;
 
 const send = (msg: ServerInboundMsg) => ws.send(JSON.stringify(msg));
 
@@ -33,6 +35,10 @@ Promise.all([
 		switch (msg.kind) {
 			case 'stateDiff': {
 				state.srv = applyDiff(state.srv ?? {}, msg.body);
+				break;
+			}
+			case 'id': {
+				state.id = msg.body.id;
 				break;
 			}
 		}

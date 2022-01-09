@@ -122,6 +122,7 @@ wss.on('connection', (ws) => {
 				break
 			}
 			case 'cursorAt': {
+				conn.cursor = msg.body;
 				for (const [key, sg] of Object.entries(state.sunGlobs)) {
 					if (dist(sg.pos, msg.body) < 40) {
 						delete state.sunGlobs[key as unknown as number];
@@ -132,6 +133,7 @@ wss.on('connection', (ws) => {
 			}
 			case 'ready': {
 				send(ws, { kind: 'stateDiff', body: state });
+				send(ws, { kind: 'id', body: { id: conn.id } });
 				break;
 			}
 		}

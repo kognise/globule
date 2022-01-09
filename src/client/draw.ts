@@ -82,7 +82,7 @@ const mulberry2 = (t: number) => {
 }
 
 let prevElapsed: number;
-export const frame = ({ pan, srv: { sunlight, trees, sunGlobs } }: State, elapsed: number) => {
+export const frame = ({ id, pan, srv: { sunlight, trees, sunGlobs, clients } }: State, elapsed: number) => {
 	const delta = elapsed - prevElapsed;
 	const renders = [];
 
@@ -107,6 +107,24 @@ export const frame = ({ pan, srv: { sunlight, trees, sunGlobs } }: State, elapse
 				fillCircle(x, y + off, scale);
 			}
 		});
+	}
+
+	for (const { cursor, id: clientId } of Object.values(clients)) {
+		if (clientId === id) {
+			renders.push({
+				zIndex: Infinity, render() {
+					ctx.fillStyle = 'rgba(121,80,242,0.3)';
+					fillCircle(mouse.x + pan.x - 15, mouse.y + pan.y - 15, 30);
+				}
+			});
+		} else {
+			renders.push({
+				zIndex: Infinity, render() {
+					ctx.fillStyle = 'rgba(255,255,255,0.2)';
+					fillCircle(cursor.x - 10, cursor.y - 10, 20);
+				}
+			});
+		}
 	}
 
 	ctx.save();
