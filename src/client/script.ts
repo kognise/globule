@@ -3,7 +3,7 @@ import { State as ServerState } from '../server/index.js';
 import { Vec2 } from '../shared/vec.js';
 import { applyDiff, transformWeirdUndefineds } from '../shared/lib.js';
 
-const ws = new WebSocket('ws://localhost:3000');
+const ws = new WebSocket('/');
 
 export interface PartialState {
 	pan: { x: number, y: number },

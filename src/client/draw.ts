@@ -3,7 +3,7 @@ import { State } from './script.js';
 const GOLDEN_RATIO = 1.618034;
 
 const dirt = new Image();
-dirt.src = '/textures/dirt-shit.png';
+dirt.src = 'textures/dirt-shit.png';
 
 let canvas: HTMLCanvasElement;
 let ctx: CanvasRenderingContext2D;
