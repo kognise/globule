@@ -3,7 +3,9 @@ import { State as ServerState } from '../server/index.js';
 import { Vec2 } from '../shared/vec.js';
 import { applyDiff, transformWeirdUndefineds } from '../shared/lib.js';
 
-const ws = new WebSocket('/');
+const wsUrl = new URL(window.location.href)
+wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:'
+const ws = new WebSocket(wsUrl);
 
 export interface PartialState {
 	pan: { x: number, y: number },
