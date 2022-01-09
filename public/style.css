@@ -6,3 +6,18 @@ body {
 canvas {
 	cursor: none;
 }
+
+button {
+	position: fixed;
+	background: transparent;
+    color: rgb(240, 210, 200);
+	display: inline-block;
+    border: 2px solid rgba(240, 210, 200, 58%);
+	text-align: left;
+	font-size: inherit;
+	cursor: none;
+}
+
+button.buy {
+	width: 114px;
+}

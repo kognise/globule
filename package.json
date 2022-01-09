@@ -6,7 +6,7 @@
 	"license": "UNLICENSED",
 	"scripts": {
 		"build": "tsc -p . && node dist/server/index.js",
-    "watch": "nodemon -w ./src/ --exec \"npm run build\" --ext ts,json"
+		"watch": "nodemon -w ./src/ --exec \"npm run build\" --ext ts,json"
 	},
 	"dependencies": {
 		"clone-deep": "^4.0.1",
