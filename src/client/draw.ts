@@ -1,30 +1,42 @@
+import { State } from './script.js';
+
 const GOLDEN_RATIO = 1.618034;
 
-let canvas = document.getElementById('canvas');
-let ctx = canvas.getContext('2d');
+const dirt = new Image();
+dirt.src = '/textures/dirt-shit.png';
 
-const xyInBox = (x, y, bx, by, bw, bh) => x >= bx && x <= (bx + bw)
-&&                                        y >= by && y <= (by + bh);
+let canvas: HTMLCanvasElement;
+let ctx: CanvasRenderingContext2D;
+
+const xyInBox = (x: number, y: number, bx: number, by: number, bw: number, bh: number) =>
+	x >= bx && x <= (bx + bw) &&
+	y >= by && y <= (by + bh);
 
 const mouse = { x: 0, y: 0 };
 
-export const init = (element) => {
+export const init = (element: HTMLCanvasElement) => {
 	canvas = element;
-	ctx = canvas.getContext('2d');
+	ctx = canvas.getContext('2d')!;
 
 	window.addEventListener('mousemove', ev => {
 		mouse.x = ev.pageX;
 		mouse.y = ev.pageY;
 	}, { passive: true });
+
+	window.addEventListener('resize', () => {
+		canvas.width = window.innerWidth;
+		canvas.height = window.innerHeight;
+	}, { passive: true });
+	window.dispatchEvent(new UIEvent('resize'));
 }
 
-const fillCircle = (x, y, r) => {
+const fillCircle = (x: number, y: number, r: number) => {
 	ctx.beginPath();
 	ctx.arc(x, y, r, 0, Math.PI * 2);
 	ctx.fill();
 }
 
-export const drawTree = (tx, ty, scale, death, alpha = 1) => {
+export const drawTree = (tx: number, ty: number, scale: number, death: number, alpha = 1) => {
 	tx += scale / 2;
 
 	const foliage = [
@@ -61,8 +73,15 @@ export const drawTree = (tx, ty, scale, death, alpha = 1) => {
 	ctx.restore();
 };
 
-let prevElapsed
-export const frame = ({ pan, srv: { sunlight, trees, sunGlobs } }, elapsed) => {
+const mulberry2 = (t: number) => {
+	t += 0x6d2b79f5;
+	t = Math.imul(t ^ t >>> 15, t | 1);
+	t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+	return ((t ^ t >>> 14) >>> 0) / 4294967296;
+}
+
+let prevElapsed: number;
+export const frame = ({ pan, srv: { sunlight, trees, sunGlobs } }: State, elapsed: number) => {
 	const delta = elapsed - prevElapsed;
 	const renders = [];
 
@@ -89,19 +108,28 @@ export const frame = ({ pan, srv: { sunlight, trees, sunGlobs } }, elapsed) => {
 		});
 	}
 
-	for (let x = 0; x < Math.floor(window.innerWidth / 256); x++) {
-		for (let y = 0; y < Math.floor(window.innerHeight / 256); y++) {
+	ctx.save();
+	ctx.translate(-pan.x, -pan.y);
+	const tileSize = 128;
+	for (let qx = 0; qx < Math.ceil(window.innerWidth / tileSize) + 2; qx++) {
+		for (let qy = 0; qy < Math.ceil(window.innerHeight / tileSize) + 2; qy++) {
+			const realTileSize = tileSize + 2;
+			const x = (Math.floor(pan.x / tileSize) + qx);
+			const y = (Math.floor(pan.y / tileSize) + qy);
+			const ix = x * tileSize - 1;
+			const iy = y * tileSize - 1;
+			const rotation = [ 0, 90, 180, 270 ][Math.floor(mulberry2(x * y) * 4)];
 
-			ctx.fillStyle = 'green';
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			ctx.save();
+			ctx.translate(ix + realTileSize/2, iy + realTileSize/2);
+			ctx.rotate(rotation / 180 * Math.PI);
+			ctx.drawImage(dirt, -realTileSize/2, -realTileSize/2, realTileSize, realTileSize);
+			ctx.restore();
 		}
 	}
 
-	ctx.save();
-	ctx.translate(-pan.x, -pan.y);
 	renders.sort((a, b) => a.zIndex - b.zIndex);
 	renders.forEach(x => x.render());
-
 	ctx.restore();
 
 	ctx.textBaseline = "top";
