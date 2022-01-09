@@ -1,5 +1,7 @@
 import { Vec2 } from '../shared/vec.js';
 import { State } from './script.js';
+import config from '../shared/config.js';
+const { prices } = config;
 
 const GOLDEN_RATIO = 1.618034;
 
@@ -110,7 +112,8 @@ export const drawTree = (tx: number, ty: number, scale: number, death: number, a
 };
 
 let prevElapsed: number;
-export const frame = ({ id, pan, srv: { sunlight, trees, sunGlobs, clients } }: State, elapsed: number) => {
+export const frame = (state: State, elapsed: number) => {
+	const { pan, id, srv: { sunlight, trees, sunGlobs, clients } } = state;
 	const delta = elapsed - prevElapsed;
 	const renders = [];
 
@@ -180,15 +183,32 @@ export const frame = ({ id, pan, srv: { sunlight, trees, sunGlobs, clients } }: 
 	ctx.restore();
 
 	ctx.textBaseline = "top";
-	ctx.fillStyle = 'black';
+	ctx.fillStyle = ctx.strokeStyle = 'rgb(240, 210, 200)';
+	ctx.lineWidth = 1;
 	ctx.font = '36px sans-serif';
 	ctx.fillText('☀️ ' + sunlight, 0, 10);
 
-	const overButton = xyInBox(mouse, { x: 20, y: 58 }, 110, 26);
-	ctx.setLineDash(overButton ? [5, 5] : []);
-	ctx.font = '16px sans-serif';
-	ctx.strokeRect(20, 58, 112, 26);
-	ctx.fillText('🌳️ buy: ☀️1️0️0️', 22, 65);
+	const mojis: Record<keyof typeof prices, string> = {
+		'sprout': '🌳️',
+		'oak': '🌰'
+	};
+	let down = 18;
+	for (const k of Object.keys(prices) as (keyof typeof prices)[]) {
+		down += 40;
+		const x = 20, y = down, w = 112, h = 26;
+
+		const overButton = xyInBox(mouse, { x, y }, w, h);
+		if (state.mouseDown && overButton)
+			state.selectedTree = k;
+		ctx.setLineDash(overButton ? [5, 5] : []);
+
+		ctx.font = '16px sans-serif';
+		ctx.strokeRect(x, y, w, h);
+		ctx.fillText(
+			mojis[k] +' buy: ' + ('☀️' + prices[k]).padStart(6),
+			x+2, y+7
+		);
+	}
 
 	prevElapsed = elapsed;
 }
