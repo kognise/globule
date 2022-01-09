@@ -2,17 +2,20 @@ import * as draw from './draw.js';
 import { State as ServerState } from '../server/index.js';
 import { Vec2 } from '../shared/vec.js';
 import { applyDiff, transformWeirdUndefineds } from '../shared/lib.js';
+import { ServerInboundMsg, ServerOutboundMsg } from '../shared/msg';
 
 const wsUrl = new URL(window.location.href)
 wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:'
 const ws = new WebSocket(wsUrl);
 
 export interface PartialState {
-	pan: { x: number, y: number },
+	pan: Vec2,
 	srv?: ServerState
 }
 export type State = PartialState & { srv: ServerState }
 const isntPartial = (state: PartialState): state is State => state.srv !== undefined
+
+const send = (msg: ServerInboundMsg) => ws.send(JSON.stringify(msg));
 
 Promise.all([
 	new Promise((res) => window.onload = res),
@@ -24,7 +27,7 @@ Promise.all([
 	draw.init(document.getElementById('canvas') as HTMLCanvasElement);
 
 	ws.onmessage = (e) => {
-		const msg = JSON.parse(e.data);
+		const msg = JSON.parse(e.data) as ServerOutboundMsg;
 		transformWeirdUndefineds(msg);
 		
 		switch (msg.kind) {
@@ -34,7 +37,7 @@ Promise.all([
 			}
 		}
 	};
-	ws.send(JSON.stringify({ kind: 'ready' }));
+	send({ kind: 'ready' });
 	
 	let loop: FrameRequestCallback;
 	(loop = (elapsed) => {
@@ -50,10 +53,10 @@ Promise.all([
 			panStart = { x: ev.pageX, y: ev.pageY }
 		} else if (ev.button === 2) {
 			if (!isntPartial(state)) return
-			ws.send(JSON.stringify({
+			send({
 				kind: 'placeTree',
 				body: { x: ev.pageX + state.pan.x, y: ev.pageY + state.pan.y }
-			}));
+			});
 		}
 	};
 	window.onmouseup = (ev) => {
@@ -67,10 +70,10 @@ Promise.all([
 			panStart = { x: ev.pageX, y: ev.pageY }
 		} else {
 			if (!state.srv) return
-			ws.send(JSON.stringify({
-				kind: 'grabGlobsAt',
+			send({
+				kind: 'cursorAt',
 				body: { x: ev.pageX + state.pan.x, y: ev.pageY + state.pan.y }
-			}));
+			});
 		}
 	};
 });

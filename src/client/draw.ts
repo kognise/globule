@@ -1,3 +1,4 @@
+import { Vec2 } from '../shared/vec.js';
 import { State } from './script.js';
 
 const GOLDEN_RATIO = 1.618034;
@@ -8,11 +9,11 @@ dirt.src = 'textures/dirt-shit.png';
 let canvas: HTMLCanvasElement;
 let ctx: CanvasRenderingContext2D;
 
-const xyInBox = (x: number, y: number, bx: number, by: number, bw: number, bh: number) =>
+const xyInBox = ({ x, y }: Vec2, { x: bx, y: by }: Vec2, bw: number, bh: number) =>
 	x >= bx && x <= (bx + bw) &&
 	y >= by && y <= (by + bh);
 
-const mouse = { x: 0, y: 0 };
+const mouse: Vec2 = { x: 0, y: 0 };
 
 export const init = (element: HTMLCanvasElement) => {
 	canvas = element;
@@ -137,7 +138,7 @@ export const frame = ({ pan, srv: { sunlight, trees, sunGlobs } }: State, elapse
 	ctx.font = '36px sans-serif';
 	ctx.fillText('☀️ ' + sunlight, 0, 10);
 
-	const overButton = xyInBox(mouse.x, mouse.y, 20, 58, 110, 26);
+	const overButton = xyInBox(mouse, { x: 20, y: 58 }, 110, 26);
 	ctx.setLineDash(overButton ? [5, 5] : []);
 	ctx.font = '16px sans-serif';
 	ctx.strokeRect(20, 58, 112, 26);

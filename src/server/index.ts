@@ -1,11 +1,11 @@
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { Vec2, add, mulf, rotToVec2, dist } from '../shared/vec.js';
 import { diff } from 'deep-object-diff';
 import express from 'express';
 import http from 'http';
 import cloneDeep from 'clone-deep';
 import path from 'path';
-import config from '../shared/config.json';
+import { ServerInboundMsg, ServerOutboundMsg } from '../shared/msg';
 import { stringify } from '../shared/lib.js';
 import { fileURLToPath } from 'url';
 
@@ -24,10 +24,16 @@ export interface SunGlob {
 	sunlight: number,
 }
 
+export interface Client {
+	id: number,
+	cursor: Vec2
+}
+
 export interface State {
 	trees: Tree[],
 	sunGlobs: Record<number, SunGlob>,
-	sunlight: number
+	sunlight: number,
+	clients: Record<number, Client>,
 }
 
 const state: State = {
@@ -38,11 +44,15 @@ const state: State = {
 			sunlight: 9 + Math.floor(Math.random() * 5)
 		}]
 	})),
-	sunlight: 0
+	sunlight: 0,
+	clients: {}
 };
 
 // how much sun a tree produces per tick relative to its age
-const sunPerYear: number[] = [ 1, 2, 3, 4, 5, 6, 7, 9, 10, 11 ]
+const sunPerYear: number[] = [ 1, 2, 3, 4, 5, 6, 7, 9, 10, 11 ];
+
+const send = (ws: WebSocket, msg: ServerOutboundMsg) =>
+	ws.send(stringify(msg));
 
 const tick = () => {
 	const startState = cloneDeep(state);
@@ -74,7 +84,7 @@ const tick = () => {
 	}
 
 	for (const client of wss.clients)
-		client.send(stringify({ kind: 'stateDiff', body: diff(startState, state) }));
+		send(client, { kind: 'stateDiff', body: diff(startState, state) });
 };
 setInterval(tick, 1000);
 
@@ -87,30 +97,33 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
+	const conn: Client = {
+		id: ++id,
+		cursor: { x: 0, y: 0 }
+	};
+	state.clients[conn.id] = conn;
+
 	ws.on('message', (data) => {
 		const startState = cloneDeep(state)
-		const msg = JSON.parse(data.toString());
+		const msg = JSON.parse(data.toString()) as ServerInboundMsg;
 		
 		switch (msg.kind) {
 			case 'placeTree': {
-				const pos = msg.body;
-
 				const nearestTreeDist = state
 					.trees
-					.map(x => dist(x.pos, pos))
+					.map(x => dist(x.pos, msg.body))
 					.sort((a, b) => a - b)
 					.splice(0, 1)[0] ?? Infinity;
 
 				if (nearestTreeDist > 40 && state.sunlight > 100) {
-					state.trees.push({ daysOld: 0, pos });
+					state.trees.push({ daysOld: 0, pos: msg.body });
 					state.sunlight -= 100;
 				}
 				break
 			}
-			case 'grabGlobsAt': {
-				const pos = msg.body;
+			case 'cursorAt': {
 				for (const [key, sg] of Object.entries(state.sunGlobs)) {
-					if (dist(sg.pos, pos) < 40) {
+					if (dist(sg.pos, msg.body) < 40) {
 						delete state.sunGlobs[key as unknown as number];
 						state.sunlight += sg.sunlight;
 					}
@@ -118,7 +131,7 @@ wss.on('connection', (ws) => {
 				break;
 			}
 			case 'ready': {
-				ws.send(stringify({ kind: 'stateDiff', body: state }));
+				send(ws, { kind: 'stateDiff', body: state });
 				break;
 			}
 		}
@@ -126,8 +139,10 @@ wss.on('connection', (ws) => {
 		const diffed = diff(startState, state);
 		if (Object.keys(diffed).length > 0)
 			for (const client of wss.clients)
-				client.send(stringify({ kind: 'stateDiff', body: diffed }));
+				send(client, { kind: 'stateDiff', body: diffed });
 	});
+
+	ws.on('close', () => delete state.clients[conn.id])
 });
 
 const port = parseInt(process.env.PORT ?? '3000', 10);
