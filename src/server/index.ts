@@ -17,13 +17,21 @@ const __dirname = path.dirname(__filename);
 let id = 0;
 
 export interface Tree {
+	kind: keyof typeof prices,
 	pos: Vec2,
 	daysOld: number
-}
+};
 
-export interface SunGlob {
+export interface Passive {
+	kind: 'sunglob' | 'acorn',
 	pos: Vec2,
+}
+export interface SunGlob extends Passive {
+	kind: 'sunglob',
 	sunlight: number,
+}
+export interface Acorn extends Passive {
+	kind: 'acorn',
 }
 
 export interface Client {
@@ -33,15 +41,16 @@ export interface Client {
 
 export interface State {
 	trees: Tree[],
-	sunGlobs: Record<number, SunGlob>,
+	passives: Record<number, Passive>,
 	sunlight: number,
 	clients: Record<number, Client>,
 }
 
 const state: State = {
 	trees: [],
-	sunGlobs: Object.fromEntries([...Array(8)].map((_, i) => {
+	passives: Object.fromEntries([...Array(8)].map((_, i) => {
 		return [++id, {
+			kind: 'sunglob',
 			pos: mulf(50 + Math.random() * 50, rotToVec2(i / 12 * Math.PI * 2)),
 			sunlight: 2 + Math.floor(Math.random() * 4)
 		}]
@@ -77,7 +86,8 @@ const tick = () => {
 			while (treeSunlight) {
 				const sunlight = Math.min(treeSunlight, Math.ceil(Math.random() * 4));
 				treeSunlight -= sunlight;
-				state.sunGlobs[++id] = {
+				state.passives[++id] = {
+					kind: 'sunglob',
 					pos: add(tree.pos, mulf(15 + Math.random()*30, rotToVec2(Math.random() * Math.PI*2))),
 					sunlight
 				};
@@ -124,17 +134,18 @@ wss.on('connection', (ws) => {
 
 				const price = prices[treeKind as keyof typeof prices];
 				if (nearestTreeDist > 40 && state.sunlight >= price) {
-					state.trees.push({ daysOld: 0, pos });
+					state.trees.push({ kind: treeKind, daysOld: 0, pos });
 					state.sunlight -= price;
 				}
 				break
 			}
 			case 'cursorAt': {
 				conn.cursor = msg.body;
-				for (const [key, sg] of Object.entries(state.sunGlobs)) {
-					if (dist(sg.pos, msg.body) < 40) {
-						delete state.sunGlobs[key as unknown as number];
-						state.sunlight += sg.sunlight;
+				for (const [key, psv] of Object.entries(state.passives)) {
+					if (dist(psv.pos, msg.body) < 40) {
+						delete state.passives[key as unknown as number];
+						if (psv.kind == 'sunglob')
+							state.sunlight += psv.sunlight;
 					}
 				}
 				break;
