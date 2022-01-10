@@ -21,7 +21,7 @@ export interface AgentActions {
 export interface AgentConfig<T> {
 	initialState: T,
 	blockRadius: number,
-	price?: number,
+	shop?: { price: number, emoji: string },
 	onTick?: (i: AgentInstance<T>, a: AgentActions) => void,
 	onBeforeDestroy?: (i: AgentInstance<T>, a: AgentActions) => void,
 	draw: (

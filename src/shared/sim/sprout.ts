@@ -5,7 +5,7 @@ import { add, mulf, rotToVec2 } from '../vec.js';
 const GOLDEN_RATIO = 1.618034;
 
 const agent: AgentConfig<{}> = {
-	price: 5,
+	shop: { price: 5, emoji: '🌳️' },
 	blockRadius: 40,
 	initialState: {},
 	onTick(i, a) {

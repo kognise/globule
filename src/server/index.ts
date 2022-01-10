@@ -112,7 +112,7 @@ wss.on('connection', (ws) => {
 		switch (msg.kind) {
 			case 'spawnAgent': {
 				const a = agents[msg.body.kind];
-				if (!a.price || a.price > state.sunlight) break;
+				if (!a.shop || a.shop.price > state.sunlight) break;
 				
 				const isBlocked = Object.values(state.agents)
 					.some(({ kind, pos }) => dist(pos, msg.body.pos) < agents[kind].blockRadius);
@@ -125,7 +125,7 @@ wss.on('connection', (ws) => {
 					state: a.initialState
 				};
 				state.agents[++id] = agent;
-				state.sunlight -= a.price;
+				state.sunlight -= a.shop.price;
 				break;
 			}
 			case 'cursorAt': {

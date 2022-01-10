@@ -161,18 +161,14 @@ export const frame = (state: State, elapsed: number) => {
 	ctx.font = '36px sans-serif';
 	ctx.fillText('☀️ ' + srv.sunlight, 0, 10);
 
-	const mojis: Record<string, string> = {
-		sprout: '🌳️'
-	};
-
 	let down = 18;
 	for (const [key, a] of Object.entries(agents)) {
-		if (a.price === undefined) continue;
+		if (a.shop === undefined) continue;
 		down += 40;
 
 		renderButton(
 			key, 20, down,
-			mojis[key] + ' buy: ' + '☀️' + a.price,
+			a.shop.emoji + ' buy: ' + '☀️' + a.shop.price,
 			() => state.selected = key as AgentKind,
 			state.selected === key ? [ 'buy', 'selected' ] : [ 'buy' ]
 		);
