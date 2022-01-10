@@ -3,10 +3,7 @@ import { fillCircle, realMod } from '../shared/lib.js'
 import { State } from './script.js';
 import agents, { AgentConfig, AgentKind } from '../shared/agents.js';
 
-const GOLDEN_RATIO = 1.618034;
-
-const dirt = new Image();
-dirt.src = 'textures/dirt-shit.png';
+const dirt = Object.assign(new Image(), { src: 'textures/dirt-shit.png' });
 
 let canvas: HTMLCanvasElement;
 let ctx: CanvasRenderingContext2D;
@@ -68,14 +65,46 @@ export const init = (element: HTMLCanvasElement) => {
 	window.dispatchEvent(new UIEvent('resize'));
 }
 
+let buttonFrame = 0;
+const buttonRegistry: Record<string, number> = {};
+const renderButton = (id: string, x: number, y: number, text: string, onClick: () => void, classes?: string[]) => {
+	if (buttonRegistry[id] !== undefined) {
+		const button = document.getElementById(id)!;
+		button.className = classes ? classes.join(' ') : '';
+		button.style.left = `${x}px`;
+		button.style.top = `${y}px`;
+		if (button.innerText !== text) button.innerText = text;
+		button.onclick = onClick;
+	} else {
+		const button = document.createElement('button')!;
+		if (classes) button.className = classes.join(' ');
+		button.id = id;
+		button.style.left = `${x}px`;
+		button.style.top = `${y}px`;
+		button.innerText = text;
+		button.onclick = onClick;
+		document.body.appendChild(button);
+	}
+	buttonRegistry[id] = buttonFrame;
+}
+const endButtonFrame = () => {
+	for (const [id, lastRender] of Object.entries(buttonRegistry)) {
+		if (lastRender !== buttonFrame) {
+			document.getElementById(id)!.remove();
+			delete buttonRegistry[id];
+		}
+	}
+	buttonFrame++;
+}
+
 let prevElapsed: number;
 export const frame = (state: State, elapsed: number) => {
-	const { pan, id, srv, mouseDown } = state;
+	const { pan, id, srv } = state;
 	const delta = elapsed - prevElapsed;
 	const renders = [];
 	
-	// tree.daysOld = Math.min(730, tree.daysOld + delta*(6/1000));
 	for (const i of Object.values(srv.agents)) {
+		i.daysOld += delta * (6/1000);
 		renders.push({
 			zIndex: i.pos.y,
 			render() {
@@ -135,24 +164,20 @@ export const frame = (state: State, elapsed: number) => {
 	const mojis: Record<string, string> = {
 		sprout: '🌳️'
 	};
+
 	let down = 18;
 	for (const [key, a] of Object.entries(agents)) {
 		if (a.price === undefined) continue;
-		
 		down += 40;
-		const x = 20, y = down, w = 112, h = 26;
 
-		const overButton = xyInBox(mouse, { x, y }, w, h);
-		if (mouseDown && overButton) state.selected = key as AgentKind;
-		ctx.setLineDash(overButton ? [5, 5] : []);
-
-		ctx.font = '16px sans-serif';
-		ctx.strokeRect(x, y, w, h);
-		ctx.fillText(
-			mojis[key] + 'buy: ' + ('☀️' + a.price).padStart(6),
-			x+2, y+7
+		renderButton(
+			key, 20, down,
+			mojis[key] + ' buy: ' + '☀️' + a.price,
+			() => state.selected = key as AgentKind,
+			state.selected === key ? [ 'buy', 'selected' ] : [ 'buy' ]
 		);
 	}
 
+	endButtonFrame();
 	prevElapsed = elapsed;
 }

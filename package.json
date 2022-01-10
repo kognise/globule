@@ -5,9 +5,11 @@
 	"main": "src/index.ts",
 	"license": "UNLICENSED",
 	"scripts": {
-		"build": "tsc -p .",
-		"start": "node dist/server/index.js",
-		"dev": "nodemon -w ./src/ --exec \"yarn build && yarn start\" --ext ts,json"
+		"dev": "yarn build && concurrently \"yarn dev:build\" \"yarn dev:start\"",
+		"dev:build": "tsc -w",
+		"dev:start": "nodemon dist/server/index.js",
+		"build": "tsc",
+		"start": "node dist/server/index.js"
 	},
 	"dependencies": {
 		"clone-deep": "^4.0.1",

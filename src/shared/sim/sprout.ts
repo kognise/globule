@@ -12,7 +12,7 @@ const agent: AgentConfig<{}> = {
 		if (i.daysOld >= 730) return { destroy: true };
 
 		if (Math.random() < 0.3) {
-			let treeSunlight = Math.floor(i.daysOld / 365);
+			let treeSunlight = Math.floor(i.daysOld / 365) + 1;
 			while (treeSunlight) {
 				const sunlight = Math.min(treeSunlight, Math.ceil(Math.random() * 4));
 				treeSunlight -= sunlight;

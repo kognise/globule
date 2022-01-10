@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import { Vec2, dist } from '../shared/vec.js';
+import { Vec2, dist, mulf, rotToVec2 } from '../shared/vec.js';
 import { diff } from 'deep-object-diff';
 import express from 'express';
 import http from 'http';
@@ -7,7 +7,7 @@ import cloneDeep from 'clone-deep';
 import path from 'path';
 import { ServerInboundMsg, ServerOutboundMsg } from '../shared/msg';
 import agents, { AgentConfig, AgentInstance, AgentKind, isInstance } from '../shared/agents.js';
-import { stringify } from '../shared/lib.js';
+import { applyDiff, stringify } from '../shared/lib.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -37,26 +37,28 @@ export interface State {
 }
 
 const state: State = {
-	// sunGlobs: Object.fromEntries([...Array(8)].map((_, i) => {
-	// 	return [++id, {
-	// 		pos: mulf(50 + Math.random() * 50, rotToVec2(i / 12 * Math.PI * 2)),
-	// 		sunlight: 2 + Math.floor(Math.random() * 4)
-	// 	}]
-	// })),
-	sunlight: 100,
-	agents: {},
+	sunlight: 0,
+	agents: Object.fromEntries(new Array(8).fill(null).map((_, i) => [
+		++id,
+		{
+			kind: 'sunlight',
+			daysOld: 0,
+			pos: mulf(50 + Math.random() * 50, rotToVec2(i / 12 * Math.PI * 2)),
+			state: { sunlight: 2 + Math.floor(Math.random() * 4) }
+		}
+	])),
 	clients: {}
 };
 
 const send = (ws: WebSocket, msg: ServerOutboundMsg) =>
 	ws.send(stringify(msg));
 
-const spawn = (kind: AgentKind, pos: Vec2) => {
+const spawn = (kind: AgentKind, pos: Vec2, partialState: unknown) => {
 	const { initialState } = agents[kind];
 	const agent: AgentInstance<unknown> = {
 		kind, pos,
 		daysOld: 0,
-		state: initialState
+		state: applyDiff(initialState, partialState)
 	};
 	state.agents[++id] = agent;
 }
@@ -82,31 +84,6 @@ const tick = () => {
 			spawn
 		});
 	}
-	// for (let i = 0; i < state.trees.length; i++) {
-	// 	const tree = state.trees[i];
-
-	// 	if (tree.daysOld >= 730) {
-	// 		state.trees.splice(i, 1);
-	// 		i--;
-	// 		continue;
-	// 	}
-
-	// 	tree.daysOld += 6;
-	// 	let treeSunlight = sunPerYear[Math.min(
-	// 		sunPerYear.length - 1,
-	// 		Math.floor(tree.daysOld / 365)
-	// 	)];
-	// 	if (Math.random() < 0.3) {
-	// 		while (treeSunlight) {
-	// 			const sunlight = Math.min(treeSunlight, Math.ceil(Math.random() * 4));
-	// 			treeSunlight -= sunlight;
-	// 			state.sunGlobs[++id] = {
-	// 				pos: add(tree.pos, mulf(15 + Math.random()*30, rotToVec2(Math.random() * Math.PI*2))),
-	// 				sunlight
-	// 			};
-	// 		}
-	// 	}
-	// }
 
 	for (const client of wss.clients)
 		send(client, { kind: 'stateDiff', body: diff(startState, state) });
