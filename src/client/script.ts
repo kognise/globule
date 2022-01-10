@@ -3,7 +3,7 @@ import { State as ServerState } from '../server/index.js';
 import { add, Vec2 } from '../shared/vec.js';
 import { applyDiff, transformWeirdUndefineds } from '../shared/lib.js';
 import { ServerInboundMsg, ServerOutboundMsg } from '../shared/msg';
-import config from '../shared/config.js';
+import { AgentKind } from '../shared/agents.js';
 
 const wsUrl = new URL(window.location.href)
 wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -13,7 +13,7 @@ export interface PartialState {
 	srv?: ServerState,
 	id?: number,
 	pan: Vec2,
-	selectedTree: keyof typeof config.prices | null,
+	selected: AgentKind | null,
 	mouseDown: boolean,
 }
 export type State = PartialState & { srv: ServerState, id: number }
@@ -26,8 +26,8 @@ Promise.all([
 	new Promise((res) => window.onload = res),
 	new Promise((res) => ws.onopen = res)
 ]).then(() => {
-	let state: PartialState = {
-		selectedTree: null,
+	const state: PartialState = {
+		selected: null,
 		mouseDown: false,
 		pan: { x: -window.innerWidth / 2, y: -window.innerHeight / 2 },
 	};
@@ -66,14 +66,14 @@ Promise.all([
 			panStart = { x: ev.pageX, y: ev.pageY }
 		} else if (ev.button === 2) {
 			if (!isntPartial(state)) return
-			if (state.selectedTree == null) return;
-			ws.send(JSON.stringify({
-				kind: 'placeTree',
+			if (state.selected === null) return;
+			send({
+				kind: 'spawnAgent',
 				body: {
 					pos: add(state.pan, { x: ev.pageX, y: ev.pageY }),
-					treeKind: state.selectedTree
+					kind: state.selected
 				}
-			}));
+			});
 		}
 	};
 	window.onmouseup = (ev) => {

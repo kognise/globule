@@ -1,3 +1,4 @@
+import { AgentKind } from './agents'
 import { Vec2 } from './vec'
 
 export type ServerOutboundMsg = 
@@ -15,8 +16,11 @@ export type ServerInboundMsg =
 	kind: 'ready'
 }
 | {
-	kind: 'placeTree',
-	body: Vec2
+	kind: 'spawnAgent',
+	body: {
+		kind: AgentKind,
+		pos: Vec2
+	}
 }
 | {
 	kind: 'cursorAt',
