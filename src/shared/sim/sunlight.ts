@@ -2,7 +2,6 @@ import { AgentConfig } from '../agents.js';
 import { fillCircle } from '../lib.js';
 
 const agent: AgentConfig<{ sunlight: number }> = {
-	blockRadius: 0,
 	initialState: { sunlight: 0 },
 	draw(ctx, i, elapsed) {
 		const scale = 1 + i.state.sunlight * 2.5;

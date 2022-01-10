@@ -1,13 +1,13 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import { Vec2, dist, mulf, rotToVec2 } from '../shared/vec.js';
+import { Vec2, dist, mulf, rotToVec2, add } from '../shared/vec.js';
 import { diff } from 'deep-object-diff';
 import express from 'express';
 import http from 'http';
 import cloneDeep from 'clone-deep';
 import path from 'path';
 import { ServerInboundMsg, ServerOutboundMsg } from '../shared/msg';
-import agents, { AgentConfig, AgentInstance, AgentKind, isInstance } from '../shared/agents.js';
-import { applyDiff, stringify } from '../shared/lib.js';
+import agents, { AgentActions, AgentConfig, AgentInstance, AgentKind, isInstance } from '../shared/agents.js';
+import { applyDiff, msPerTick, stringify } from '../shared/lib.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -37,12 +37,13 @@ export interface State {
 }
 
 const state: State = {
-	sunlight: 0,
+	sunlight: 1000,
 	agents: Object.fromEntries(new Array(8).fill(null).map((_, i) => [
 		++id,
 		{
+			id,
 			kind: 'sunlight',
-			daysOld: 0,
+			ticksOld: 0,
 			pos: mulf(50 + Math.random() * 50, rotToVec2(i / 12 * Math.PI * 2)),
 			state: { sunlight: 2 + Math.floor(Math.random() * 4) }
 		}
@@ -53,42 +54,73 @@ const state: State = {
 const send = (ws: WebSocket, msg: ServerOutboundMsg) =>
 	ws.send(stringify(msg));
 
-const spawn = (kind: AgentKind, pos: Vec2, partialState: unknown) => {
-	const { initialState } = agents[kind];
-	const agent: AgentInstance<unknown> = {
-		kind, pos,
-		daysOld: 0,
-		state: applyDiff(initialState, partialState)
-	};
-	state.agents[++id] = agent;
+const destroyUtil = (id: number, destroy?: boolean) => {
+	if (destroy !== false) {
+		const i = state.agents[id] as AgentInstance<unknown>;
+		const { onBeforeDestroy } = agents[i.kind] as AgentConfig<unknown>;
+
+		let reallyDestroy = true
+		if (onBeforeDestroy) onBeforeDestroy(i, {
+			destroy: (a) => destroyUtil(i.id, a),
+			destroyAgent: (a, b) => destroyUtil(a, b),
+			spawn,
+			drop: (kind, partialState) => drop(i, kind, partialState)
+		}, state)
+		if (reallyDestroy) delete state.agents[id];
+	}
 }
 
+const spawn = (kind: AgentKind, pos: Vec2, partialState?: unknown) => {
+	const { initialState, onSpawn, onBeforeDestroy } = agents[kind] as AgentConfig<unknown>;
+	const agent: AgentInstance<unknown> = {
+		id: ++id,
+		kind, pos,
+		ticksOld: 0,
+		state: partialState ? applyDiff(cloneDeep(initialState), partialState) : cloneDeep(initialState)
+	};
+	state.agents[agent.id] = agent;
+	if (onSpawn) onSpawn(agent, {
+		destroy: (a) => destroyUtil(agent.id, a),
+		destroyAgent: (a, b) => destroyUtil(a, b),
+		spawn,
+		drop: (kind, partialState) => drop(agent, kind, partialState)
+	}, state);
+}
+
+const drop = (i: AgentInstance<unknown>, kind: AgentKind, partialState?: unknown) => {
+	const pos = add(i.pos, mulf(15 + Math.random()*30, rotToVec2(Math.random() * Math.PI*2)));
+	spawn(kind, pos, partialState);
+	return pos;
+}
+
+let accumulator = 0;
+let lastTime = Date.now();
 const tick = () => {
 	const startState = cloneDeep(state);
 
-	for (const [key, i] of Object.entries(state.agents)) {
-		i.daysOld += 6;
+	const now = Date.now();
+	accumulator += now - lastTime;
+	lastTime = now;
 
-		const { onTick, onBeforeDestroy } = agents[i.kind] as AgentConfig<unknown>;
-		if (onTick) onTick(i, {
-			destroy: (destroy) => {
-				if (destroy !== false) {
-					let reallyDestroy = true
-					if (onBeforeDestroy) onBeforeDestroy(i, {
-						destroy: (destroy) => reallyDestroy = destroy !== false,
-						spawn,
-					})
-					if (reallyDestroy) delete state.agents[key as any as number];
-				}
-			},
-			spawn
-		});
+	while (accumulator > msPerTick) {
+		accumulator -= msPerTick;
+		for (const [key, i] of Object.entries(state.agents)) {
+			i.ticksOld++;
+
+			const { onTick, onBeforeDestroy } = agents[i.kind] as AgentConfig<unknown>;
+			if (onTick) onTick(i, {
+				destroy: (a) => destroyUtil(i.id, a),
+				destroyAgent: (a, b) => destroyUtil(a, b),
+				spawn,
+				drop: (kind, partialState) => drop(i, kind, partialState)
+			}, state);
+		}
 	}
 
 	for (const client of wss.clients)
 		send(client, { kind: 'stateDiff', body: diff(startState, state) });
 };
-setInterval(tick, 1000);
+setInterval(tick, msPerTick);
 
 const app = express();
 
@@ -111,21 +143,28 @@ wss.on('connection', (ws) => {
 		
 		switch (msg.kind) {
 			case 'spawnAgent': {
-				const a = agents[msg.body.kind];
+				const a = agents[msg.body.kind] as AgentConfig<unknown>;
 				if (!a.shop || a.shop.price > state.sunlight) break;
 				
 				const isBlocked = Object.values(state.agents)
-					.some(({ kind, pos }) => dist(pos, msg.body.pos) < agents[kind].blockRadius);
+					.some(({ pos }) => dist(pos, msg.body.pos) < a.shop!.blockRadius);
 				if (isBlocked) break;
 
 				const agent: AgentInstance<unknown> = {
+					id: ++id,
 					kind: msg.body.kind,
-					daysOld: 0,
+					ticksOld: 0,
 					pos: msg.body.pos,
-					state: a.initialState
+					state: cloneDeep(a.initialState)
 				};
-				state.agents[++id] = agent;
+				state.agents[agent.id] = agent;
 				state.sunlight -= a.shop.price;
+				if (a.onSpawn) a.onSpawn(agent, {
+					destroy: (a) => destroyUtil(agent.id, a),
+					destroyAgent: (a, b) => destroyUtil(a, b),
+					spawn,
+					drop: (kind, partialState) => drop(agent, kind, partialState)
+				}, state)
 				break;
 			}
 			case 'cursorAt': {

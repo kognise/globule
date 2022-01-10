@@ -1,5 +1,5 @@
-import { Vec2 } from '../shared/vec.js';
-import { fillCircle, realMod } from '../shared/lib.js'
+import { Vec2, lerp, eq } from '../shared/vec.js';
+import { fillCircle, msPerTick, realMod } from '../shared/lib.js'
 import { State } from './script.js';
 import agents, { AgentConfig, AgentKind } from '../shared/agents.js';
 
@@ -66,9 +66,9 @@ export const init = (element: HTMLCanvasElement) => {
 }
 
 let buttonFrame = 0;
-const buttonRegistry: Record<string, number> = {};
+const buttonRegistry: Map<string, number> = new Map();
 const renderButton = (id: string, x: number, y: number, text: string, onClick: () => void, classes?: string[]) => {
-	if (buttonRegistry[id] !== undefined) {
+	if (buttonRegistry.get(id) !== undefined) {
 		const button = document.getElementById(id)!;
 		button.className = classes ? classes.join(' ') : '';
 		button.style.left = `${x}px`;
@@ -85,26 +85,42 @@ const renderButton = (id: string, x: number, y: number, text: string, onClick: (
 		button.onclick = onClick;
 		document.body.appendChild(button);
 	}
-	buttonRegistry[id] = buttonFrame;
+	buttonRegistry.set(id, buttonFrame);
 }
 const endButtonFrame = () => {
 	for (const [id, lastRender] of Object.entries(buttonRegistry)) {
 		if (lastRender !== buttonFrame) {
 			document.getElementById(id)!.remove();
-			delete buttonRegistry[id];
+			buttonRegistry.delete(id);
 		}
 	}
 	buttonFrame++;
 }
 
 let prevElapsed: number;
+const prevPos: Map<number, { start: Vec2, end: Vec2, t: number }> = new Map();
 export const frame = (state: State, elapsed: number) => {
 	const { pan, id, srv } = state;
 	const delta = elapsed - prevElapsed;
 	const renders = [];
 	
 	for (const i of Object.values(srv.agents)) {
-		i.daysOld += delta * (6/1000);
+		i.ticksOld += delta / msPerTick;
+		
+		/*
+			Get new pos from server
+			Store previous, new pos, timestamp received
+			Set current pos to interpolation between previous, new, over timestamp
+		*/
+		let prev = prevPos.get(i.id);
+		if (prev && !eq(prev.end, i.pos)) {
+			prevPos.set(i.id, { start: prev.end, end: i.pos, t: elapsed });
+			prev = prevPos.get(i.id);
+		}
+		if (prev) {
+			i.pos = lerp(prev.start, prev.end, (elapsed - prev.t) / msPerTick);
+		}
+		
 		renders.push({
 			zIndex: i.pos.y,
 			render() {
