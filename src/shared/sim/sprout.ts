@@ -9,7 +9,7 @@ const agent: AgentConfig<{}> = {
 	blockRadius: 40,
 	initialState: {},
 	onTick(i, a) {
-		if (i.daysOld >= 730) return { destroy: true };
+		if (i.daysOld >= 730) return a.destroy();
 
 		if (Math.random() < 0.3) {
 			let treeSunlight = Math.floor(i.daysOld / 365) + 1;
